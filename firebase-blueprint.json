@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A single financial transaction (income or expense).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user who owns this transaction." },
+        "date": { "type": "string", "description": "Date of transaction in YYYY-MM-DD format." },
+        "description": { "type": "string", "description": "Description of the transaction." },
+        "amount": { "type": "number", "description": "Transaction amount." },
+        "type": { "type": "string", "enum": ["income", "expense"], "description": "Type of transaction." },
+        "category": { "type": "string", "description": "Category of the transaction." },
+        "reference": { "type": "string", "description": "Reference number or string to prevent duplicates." },
+        "createdAt": { "type": "string", "description": "Creation timestamp." }
+      },
+      "required": ["userId", "date", "description", "amount", "type", "createdAt"]
+    },
+    "PlannerSettings": {
+      "title": "PlannerSettings",
+      "description": "Settings for the allowance planner.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "totalAmount": { "type": "string" },
+        "installments": { "type": "string" },
+        "period": { "type": "string", "enum": ["weeks", "months"] },
+        "allowanceName": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "totalAmount", "installments", "period", "updatedAt"]
+    },
+    "BudgetSettings": {
+      "title": "BudgetSettings",
+      "description": "Settings for monthly category budgets.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "budgets": { "type": "object", "description": "Map of category names to budget amounts" },
+        "openingBalances": { "type": "object", "description": "Map of YYYY-MM to opening balance" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "budgets", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Stores user transactions."
+    },
+    "users/{userId}/settings/planner": {
+       "schema": { "$ref": "#/entities/PlannerSettings" },
+       "description": "Stores user planner settings."
+    },
+    "users/{userId}/settings/budget": {
+       "schema": { "$ref": "#/entities/BudgetSettings" },
+       "description": "Stores user budget settings."
+    }
+  }
+}

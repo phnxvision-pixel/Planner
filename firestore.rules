@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    function isValidTransaction(data, expectedUserId) {
+      return data.keys().hasAll(['userId', 'date', 'description', 'amount', 'type', 'createdAt'])
+        && data.keys().size() >= 6
+        && data.keys().size() <= 8 // Allow category and reference
+        && data.userId == expectedUserId
+        && data.date is string && data.date.size() <= 32
+        && data.description is string && data.description.size() <= 200
+        && data.amount is number && data.amount >= 0
+        && (data.type == 'income' || data.type == 'expense')
+        && (!('category' in data) || (data.category is string && data.category.size() <= 50))
+        && (!('reference' in data) || (data.reference is string && data.reference.size() <= 250))
+        && data.createdAt == request.time;
+    }
+
+    function isValidTransactionUpdate(data, expectedUserId) {
+      return data.userId == expectedUserId
+        && data.date is string && data.date.size() <= 32
+        && data.description is string && data.description.size() <= 200
+        && data.amount is number && data.amount >= 0
+        && (data.type == 'income' || data.type == 'expense')
+        && (!('category' in data) || (data.category is string && data.category.size() <= 50))
+        && (!('reference' in data) || (data.reference is string && data.reference.size() <= 250));
+    }
+
+    function isValidPlannerSettings(data, expectedUserId) {
+      return data.keys().hasAll(['userId', 'totalAmount', 'installments', 'period', 'updatedAt'])
+        && data.keys().size() >= 5
+        && data.keys().size() <= 6
+        && data.userId == expectedUserId
+        && data.totalAmount is string && data.totalAmount.size() <= 50
+        && data.installments is string && data.installments.size() <= 50
+        && (data.period == 'weeks' || data.period == 'months')
+        && (!('allowanceName' in data) || (data.allowanceName is string && data.allowanceName.size() <= 100))
+        && data.updatedAt == request.time;
+    }
+
+    function isValidBudgetSettings(data, expectedUserId) {
+      return data.keys().hasAll(['userId', 'budgets', 'updatedAt'])
+        && data.keys().size() >= 3
+        && data.keys().size() <= 4
+        && data.userId == expectedUserId
+        && data.budgets is map
+        && (!('openingBalances' in data) || data.openingBalances is map)
+        && data.updatedAt == request.time;
+    }
+
+    match /users/{userId} {
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+                      && isValidId(transactionId)
+                      && isValidTransaction(incoming(), userId);
+        allow update: if isOwner(userId)
+                      && isValidId(transactionId)
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['date', 'description', 'amount', 'type', 'category', 'reference'])
+                      && isValidTransactionUpdate(incoming(), userId)
+                      && incoming().userId == existing().userId
+                      && incoming().createdAt == existing().createdAt;
+        allow delete: if isOwner(userId) && isValidId(transactionId);
+      }
+      match /settings/planner {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+                      && isValidPlannerSettings(incoming(), userId);
+        allow update: if isOwner(userId)
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['totalAmount', 'installments', 'period', 'allowanceName', 'updatedAt'])
+                      && isValidPlannerSettings(incoming(), userId)
+                      && incoming().userId == existing().userId;
+      }
+      match /settings/budget {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+                      && isValidBudgetSettings(incoming(), userId);
+        allow update: if isOwner(userId)
+                      && incoming().diff(existing()).affectedKeys().hasOnly(['budgets', 'openingBalances', 'updatedAt'])
+                      && isValidBudgetSettings(incoming(), userId)
+                      && incoming().userId == existing().userId;
+      }
+    }
+  }
+}

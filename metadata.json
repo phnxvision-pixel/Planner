@@ -1,0 +1,6 @@
+{
+  "name": "Moneyguide Niklas",
+  "description": "Ein Tool zur Erfassung von Einnahmen und Ausgaben mit automatischer OCR-Kennung aus Kontoauszügen.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
